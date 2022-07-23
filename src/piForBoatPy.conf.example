@@ -1,0 +1,24 @@
+[default]
+heelOffset=77.82
+factorBattHouse = 1.0
+factorBattEngine = 0.00137868
+factorBattAux = 0.00136809
+factorAmps=0.25
+factorFuel=1
+factorRPMs=6.0
+nmeaHost=192.168.26.86
+nmeaPort=10110
+#nmeaHost=127.0.0.1
+#nmeaPort=11000
+ampHours=2.0
+engine_therm_id=28-0000072e0c34
+cabin_therm_id=28-000007c5c95a
+exhaust_therm_id=28-00000917310d
+water_cutoff_full = 1.5
+water_cutoff_3_quarters = 1.2
+water_cutoff_2_quarters = 0.78
+water_cutoff_1_quarter = 0.4
+mysql_host=192.168.5.1
+mysql_user=REPLACE_ME
+mysql_password=REPLACE_ME_TOO
+mysql_database=BoatServer
