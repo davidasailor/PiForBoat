@@ -5,7 +5,7 @@ Code and documentation for a Raspberry Pi based boat monitoring system
 A central Pi mounted on the boat runs SignalK and InfluxDB.  The Pi runs a custom Python based service to read voltages and sensor data for sensors that are close to it.  Other sensors around the boat transmit data via RFM69 radio modules back to the Pi.  The Pi stores data in a log file in NMEA0183 style format, and into the InfluxDB via SignalK.  SignalK also reads all NMEA2000 data on the boat's network via a Yacht Devices USB/NMEA2K gateway.  The gateway is also used to push sensor data back out to the NMEA2K network for display on the boat's chart plotter.
 
 In addition to the logging and network communications functions, the central Pi also gathers the following data:
-  - Bilge pump runs, based on the power line to the pump from the existing electronic flow switch.  The power line to the pump goes through a voltage divider to an interrupt pin on the Pi to increment a counter and log the times of pump runs 
+  - Bilge pump runs, based on the power line to the pump from the existing electronic float switch.  The power line to the pump goes through a voltage divider to an interrupt pin on the Pi to increment a counter and log the times of pump runs 
   - Temperatures of the cabin, engine, and exhaust elbow via DS18B20 temperature sensors
   - Water tank levels, by measuring the voltage output of existing VDO tank sensors
   - Cabin VOC's via a MiCS5524 sensor
@@ -33,6 +33,7 @@ I am by no means a professional software developer or electrical engineer.  Thou
 
 <H2>Design Considerations</h2>
 Overall, the system is designed to require minimal modification of the boat's existing electrical or physical configuration.  Most interfaces are to existing sensors (e.g. VDO water sensors already on the boat).  Wireless communication is used to minimize wire runs, for example between the electrical hubs in the aft cabin and the main cabin.  Power consumption is minimal, due to the use of an older Pi with lower power requirements (but also less processing power).  Some clear opportunities for design improvement are:
+
   - A better way to access data from on the boat, particularly when out of cell range.  When in cell range it's possible to connect to the regular Grafana dashboards.  When the boat is out of cell range the home server can only present the MySQL hosted data from before connectivity was lost.  A boat-based dashboard and easy way to access it would be preferable, but would require higher processing power on the Pi for Grafana, and a more easily accessible wifi access point.
   - Reduced hardware, if all data could be gathered from one place
   - More robust charge/load monitoring.  In particular, the ADC reading the load-specific shunt can be overloaded if the ground wire is disconnected between the shunt and the house bank.
