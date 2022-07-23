@@ -39,6 +39,7 @@ Overall, the system is designed to require minimal modification of the boat's ex
 
 <H2>Project index</h2>
 The general contents of the project are:
+
   - SRC, containing the source files for the Pi, Pico, and Atmega328p
   - Grafana, containing the specification files for the Grafana dashboards
   - Diagrams, containing the architecture and data flow diagrams (with a full wiring diagram to follow in the winter when I can re-trace all the connections)
