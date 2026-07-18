@@ -1,17 +1,23 @@
 #DEBUG = True will log more, and speed up first phone home
 DEBUG = False
+ONBOARD_HARDWARE = True
+RADIO_EQUIPPED = ONBOARD_HARDWARE
+#RADIO_EQUIPPED = False
+BME_EQUIPPED = ONBOARD_HARDWARE
+ACCEL_EQUIPPED = ONBOARD_HARDWARE
+ADS_EQUIPPED = ONBOARD_HARDWARE
 
 import configparser
 import threading
 import time
 import math
-from adxl345 import ADXL345
+import adafruit_adxl34x
 import statistics
 import datetime
 import logging
 import queue
 import socket
-from telnetlib import Telnet
+#from telnetlib import Telnet
 import RPi.GPIO as GPIO
 import atexit
 import subprocess
@@ -23,21 +29,46 @@ import board
 import adafruit_rfm69
 import busio
 from digitalio import DigitalInOut, Direction, Pull
-import mysql.connector
+import mariadb
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import digitalio
+import requests
+import pickle
+import pandas as pd
+from sklearn.neural_network import MLPRegressor
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import os
+import glob
+import adafruit_bme680
 
 PS = 13 # Pin for sensing power state
-BILGE_PIN = 26 # Input from bilge pump enabled
-RFM69_G0 = 22 # Interrupts from RFM69 radio
-VOC_EN = 23 # EN pin for VOC sensor
+BILGE_PIN = 21 # Input from bilge pump enabled
+RFM69_G0 = 5 # Interrupts from RFM69 radio
+#VOC_EN = 23 # EN pin for VOC sensor
 
 SIGNALK_PORT = 55557 # Port for sending datagrams to localhost SignalK
 
-BOAT_NAME = "default"
+# Resolve configuration and logging directory (PATH)
+PATH = "./"
+if os.path.exists("./piForBoatPy.conf"):
+    PATH = "./"
+else:
+    found_path = None
+    for h in glob.glob("/home/*"):
+        if os.path.exists(os.path.join(h, "piForBoatPy.conf")):
+            found_path = h + "/"
+            break
+    if found_path:
+        PATH = found_path
+    else:
+        if os.path.exists("/etc/piForBoatPy.conf"):
+            PATH = "/etc/"
+        else:
+            PATH = os.path.expanduser("~") + "/"
 
-PATH = "/home/pi/PiForBoatPy/"
+BOAT_NAME = "YOUR_BOAT_NAME" # Default fallback, will be overridden by the config file section header
 
 # Simple defaults
 battHouse = [0.0, 0.0, 0.0]
@@ -62,18 +93,27 @@ lastNav = datetime.datetime.now()
 location = ""
 battHouseTemp = [0.0, 0.0, 0.0]
 tempFridge = [0.0, 0.0, 0.0]
+polarSpeed = 0.0
+refrigerator_govee = ""
+pressure = [0.0, 0.0, 0.0]
+humidity = [0.0, 0.0, 0.0]
 
 # RFM69 Initialization
-CS = digitalio.DigitalInOut(board.CE1)
-RESET = digitalio.DigitalInOut(board.D25)
-SPI = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
-FREQ = 433.0
-rfm69 = adafruit_rfm69.RFM69(SPI, CS, RESET, FREQ)
-rfm69.encryption_key = ( b"\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26" )
+if(RADIO_EQUIPPED):
+    CS = digitalio.DigitalInOut(board.CE0)
+    RESET = digitalio.DigitalInOut(board.D25)
+    SPI = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
+    FREQ = 433.0
+    rfm69 = adafruit_rfm69.RFM69(SPI, CS, RESET, FREQ)
+    rfm69.encryption_key = ( b"\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26" )
 
 # Load values from config file
 config = configparser.ConfigParser()
 config.read(PATH + 'piForBoatPy.conf')
+# Automatically detect the boat name from the first section header of the config file
+sections = config.sections()
+if sections:
+    BOAT_NAME = sections[0]
 configs = config[BOAT_NAME]
 heelOffset = float(configs['heelOffset'])
 factorBattHouse = float(configs['factorBattHouse'])
@@ -84,9 +124,6 @@ factorAmps = float(configs['factorAmps'])
 factorRPMs = float(configs['factorRPMs'])
 nmeaHost = configs['nmeaHost']
 nmeaPort = int(configs['nmeaPort'])
-engine_therm_id = configs['engine_therm_id']
-exhaust_therm_id = configs["exhaust_therm_id"]
-cabin_therm_id = configs["cabin_therm_id"]
 water_cutoff_full = float(configs["water_cutoff_full"])
 water_cutoff_3_quarters = float(configs["water_cutoff_3_quarters"])
 water_cutoff_2_quarters = float(configs["water_cutoff_2_quarters"])
@@ -95,6 +132,7 @@ mysql_host = configs["mysql_host"]
 mysql_user = configs["mysql_user"]
 mysql_password = configs["mysql_password"]
 mysql_database = configs["mysql_database"]
+refrigerator_govee = configs["refrigerator_govee"]
 
 # Load persistent values saved from previous shutdown
 oldValues = configparser.ConfigParser()
@@ -117,49 +155,43 @@ nmea_file = open(PATH + "Log.nmea", "a")
 # Declare socket for sending to SignalK
 signalK = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-# Callback for bilge pump turning on
-def bilgeOn(channel):
+# I2C for ADS and ADXL
+i2c = busio.I2C(board.SCL, board.SDA)
 
-    onTime = (datetime.datetime.now())
-
-    # Debounce manually, since bouncetime interrupt argument seems ineffective
-    time.sleep(0.5)
-    if not GPIO.input(BILGE_PIN):
-        logging.warning("Bilge reader pin bounced for less than 500 ms; disregarding")
-        return
-
-    logging.warning("Bilge pump running")
+def bilge_monitor_task(onTime):
+    logging.warning("Bilge pump monitor started")
     setBilgeTime(onTime)
     incBilge()
 
     stillRunning = False
-
-    # While pump is still running (or give up after 2 minutes)
-    while (GPIO.input(BILGE_PIN) and
-                    (datetime.datetime.now()-onTime).total_seconds() < 120):
+    # Monitor for up to 120 seconds
+    endTime = datetime.datetime.now() + datetime.timedelta(seconds=120)
+    
+    while datetime.datetime.now() < endTime:
+        if not GPIO.input(BILGE_PIN):
+            break
         time.sleep(1.0)
 
-    # Get ready to phone home
-    #Params = [('type', "pump")]
-
-    # IF pump is still running
     if GPIO.input(BILGE_PIN):
         stillRunning = True
-
-    if stillRunning:
         logging.warning("Continuous bilge since " + str(onTime))
-        #Params.append(("continuous", "true"))
-        #Params.append(("lastBilgeChange", onTime.strftime("%a %b %d %H:%M:%S EDT %Y")))
-
     else:
-        logging.warning("Bilge stopped after starting " +
-                        (str((datetime.datetime.now()-onTime).total_seconds())) + " seconds ago")
-        #Params.append(("continuous", "false"))
-        #Params.append(("lastBilgeChange", onTime.strftime("%a %b %d %H:%M:%S EDT %Y")))
-        #Params.append(("seconds", str(int((datetime.datetime.now()-onTime).total_seconds()))))
+        logging.warning(f"Bilge stopped. Ran for {(datetime.datetime.now()-onTime).total_seconds()}s")
+    
+    sql_home(getVals())
 
-    # Perform HTTP GET to send data
-        sql_home(getVals())
+# Callback for bilge pump turning on
+def bilgeOn(channel):
+    # Debounce manually
+    time.sleep(0.5)
+    if not GPIO.input(BILGE_PIN):
+        logging.warning("Bilge reader pin bounced; disregarding")
+        return
+        
+    # Offload the long-running task to a new thread so we don't block other interrupts
+    onTime = datetime.datetime.now()
+    t = threading.Thread(target=bilge_monitor_task, args=(onTime,))
+    t.start()
 
 def rfm69_callback(rfm69_irq):
     # see if this was a payload_ready interrupt ignore if not
@@ -168,6 +200,9 @@ def rfm69_callback(rfm69_irq):
         if packet is not None:
             logging.debug("RFM69 Received: " + packet.hex())
             if (packet[1] == 2): #NodeID=2 for Aft Cabin Pico
+                if len(packet) != 37:
+                    logging.warning("Discarding RFM69 packet from Node 2 with invalid length: " + str(len(packet)) + " bytes (expected 37)")
+                    return
                 v_bytes = packet[4:6]
                 v_int = int.from_bytes(v_bytes, "big")
                 v_float = v_int / 1000.0   # SmartShunt sends millivots
@@ -188,6 +223,7 @@ def rfm69_callback(rfm69_irq):
                 dold_bytes = packet[19:21]
                 dold_int = int.from_bytes(dold_bytes, "big")
                 # SmartShunt sends milliamps, but pico divides by 10 to fit in 2 byte buffer
+                # This should be ok for up to 650 AH
                 dold_float = dold_int / 100.0  
                 tsf_bytes = packet[21:25]
                 tsf_int = int.from_bytes(tsf_bytes, "big")
@@ -202,6 +238,12 @@ def rfm69_callback(rfm69_irq):
                 vs_bytes = packet[31:33]
                 vs_int = int.from_bytes(vs_bytes, "big")
                 vs_float = vs_int
+                temp1_bytes = packet[33:35]
+                temp1_int = int.from_bytes(temp1_bytes, "big", signed=True)
+                temp1_float = temp1_int / 10.0
+                temp2_bytes = packet[35:37]
+                temp2_int = int.from_bytes(temp2_bytes, "big", signed=True)
+                temp2_float = temp2_int / 10.0
 
                 setBattHouse(v_float)
                 setBattEngine(vs_float)
@@ -217,6 +259,10 @@ def rfm69_callback(rfm69_irq):
                 setRevs(revs_int)
                 setBattHouseTemp(temp_float)
 
+                # TODO: Check that engine and exhaust aren't flipped
+                setTempEngine(temp1_float * 9.0 / 5.0 + 32.0) # Convert to Fahrenheit
+                setTempExhaust(temp2_float * 9.0 / 5.0 + 32.0) # Convert to Fahrenheit
+
                 # Nead to read back in from measurements to use factors
                 nmea_log("ADC", "{:.2f}".format(getBattHouse()[1]) +
                         ", " + "{:.2f}".format(getBattEngine()[1]) +
@@ -228,12 +274,16 @@ def rfm69_callback(rfm69_irq):
                         ", " + "{:.2f}".format(getBattHouseTemp()[1] ))
                 if(revs_int > 1):
                     nmea_log("RPM", "{:.0f}".format(revs_int))
+
+                nmea_log("EGT", "{:.2f}".format(getTempEngine()[1]) + 
+                         ", " + "{:.2f}".format(getTempExhaust()[1]))
+
             elif (packet[1] == 0xff): #NodeID=1 for refrigerator sensor
                 t_bytes = packet[8:9]
                 t_int = int.from_bytes(t_bytes, "big", signed=True)-2 # Reads ~2 degrees high
                 logging.debug("Got Temperature: " + str(t_int))
                 setFridgeTemp(t_int)
-            
+
 # On shutdown, save persistent values (for SIGINT)
 def shutdown():
     with open(PATH + "persistent_data", "w") as saveTo:
@@ -294,7 +344,8 @@ def setBattHouse(volts):
     send_delta("electrical.batteries.House.voltage", volts)
 
 def getBattHouse():
-    return battHouse
+    with measurement_lock:
+        return list(battHouse)
 
 def setBattHouseTemp(temp):
     with measurement_lock:
@@ -303,7 +354,8 @@ def setBattHouseTemp(temp):
     send_delta("electrical.batteries.House.temperature", (5/9) * (temp +459.67))
 
 def getBattHouseTemp():
-    return battHouseTemp
+    with measurement_lock:
+        return list(battHouseTemp)
 
 def setBattEngine(volts):
     with measurement_lock:
@@ -312,7 +364,8 @@ def setBattEngine(volts):
     send_delta("electrical.batteries.Engine.voltage", battEngine[1])
 
 def getBattEngine():
-    return battEngine
+    with measurement_lock:
+        return list(battEngine)
 
 def setBattAux(volts):
     with measurement_lock:
@@ -321,7 +374,8 @@ def setBattAux(volts):
     send_delta("electrical.batteries.Thruster.voltage", battAux[1])
 
 def getBattAux():
-    return battAux
+    with measurement_lock:
+        return list(battAux)
 
 def setAmps(ampVal):
     with measurement_lock:
@@ -330,17 +384,26 @@ def setAmps(ampVal):
     send_delta("electrical.batteries.House.load", amps[1])
 
 def getAmps():
-    return amps
-
-def setHeel(angle):
     with measurement_lock:
-        heel[1] = angle + heelOffset
-        getMinMax(heel)
-    send_delta("navigation.attitude", '{"roll":"' + str(((heel[1] / 360.0) * (2.0 * 3.14159))) + '", "pitch":"0.0", "yaw":"0.0"}')
-    send_delta("navigation.attitude.heel", heel[1])
+        return list(amps)
+
+def setHeel(angle, from_internal):
+    angle_deg = angle * 57.3
+    if from_internal:
+        with measurement_lock:
+            heel[1] = angle_deg + heelOffset
+            getMinMax(heel)
+        send_delta("navigation.attitude", '{"roll":"' + str(angle + heelOffset/57.3) + '", "pitch":"0.0", "yaw":"0.0"}')
+        send_delta("navigation.attitude.heel", angle_deg + heelOffset)
+    else:
+        with measurement_lock:
+            heel[1] = angle_deg
+            getMinMax(heel)
+        send_delta("navigation.attitude.heel", angle_deg)
 
 def getHeel():
-    return heel
+    with measurement_lock:
+        return list(heel)
 
 def setTempCabin(temp):
     with measurement_lock:
@@ -349,7 +412,8 @@ def setTempCabin(temp):
     send_delta("environment.inside.mainCabin.temperature", (5/9) * (tempCabin[1] +459.67))
 
 def getTempCabin():
-    return tempCabin
+    with measurement_lock:
+        return list(tempCabin)
 
 def setGasLevel(newGasLevel):
     with measurement_lock:
@@ -358,7 +422,20 @@ def setGasLevel(newGasLevel):
     send_delta("environment.inside.mainCabin.voc", gasLevel[1])
 
 def getGasLevel():
-    return gasLevel
+    with measurement_lock:
+        return list(gasLevel)
+
+def setPressure(newPressure):
+    with measurement_lock:
+        pressure[1] = newPressure
+        getMinMax(pressure)
+    send_delta("environment.inside.mainCabin.pressure", pressure[1])
+
+def setHumidity(newHumidity):
+    with measurement_lock:
+        humidity[1] = newHumidity
+        getMinMax(humidity)
+    send_delta("environment.inside.mainCabin.humidity", humidity[1])
 
 def setTempEngine(temp):
     with measurement_lock:
@@ -367,7 +444,8 @@ def setTempEngine(temp):
     send_delta("propulsion.main.coolantTemperature", (5/9) * (tempEngine[1] + 459.67))
 
 def getTempEngine():
-    return tempEngine
+    with measurement_lock:
+        return list(tempEngine)
 
 def setTempExhaust(temp):
     with measurement_lock:
@@ -376,7 +454,8 @@ def setTempExhaust(temp):
     send_delta("propulsion.main.exhaustTemperature", (5/9) * (tempExhaust[1] + 459.67))
 
 def getTempExhaust():
-    return tempExhaust
+    with measurement_lock:
+        return list(tempExhaust)
 
 def setRevs(rpms):
     with measurement_lock:
@@ -385,7 +464,8 @@ def setRevs(rpms):
     send_delta("propulsion.main.revolutions", revs[1] / 60)
 
 def getRevs():
-    return revs
+    with measurement_lock:
+        return list(revs)
 
 def setWater1(level):
     global water1
@@ -450,7 +530,8 @@ def setNetCurrent(amps):
     send_delta("electrical.batteries.House.current", amps)
 
 def getNetCurrent():
-    return netCurrent
+    with measurement_lock:
+        return list(netCurrent)
 
 def setSOC(state):
     global soc
@@ -487,6 +568,11 @@ def setFridgeTemp(temp):
         tempFridge[1] = temp
         getMinMax(tempFridge)
     send_delta("environment.inside.refrigerator.temperature", (5/9) * (tempFridge[1] + 459.67))
+    
+def setPolarTarget(speed):
+    with measurement_lock:
+        polarSpeed = speed
+    send_delta("performance.polarSpeed", speed*.51444)
 
 # Reset min and max values of measurements
 # Values chosen to be immediately overwritten by valid data
@@ -536,6 +622,9 @@ def getVals():
     except ValueError:      # GGA is 0's before initialized
         lat_float = 39.546149
         lon_float = -76.085138
+    except IndexError:      # GGA is 0's before initialized
+        lat_float = 39.546149
+        lon_float = -76.085138
 
     vals = ((datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
         "{:.2f}".format(getBattHouse()[1]),
@@ -581,8 +670,8 @@ def getVals():
         "{:.2f}".format(getNetCurrent()[2]),
         "{:.2f}".format(getSOC()),
         "{:.0f}".format(getBilge()),
-        "{:.2f}".format(getBattHouseTemp()[1]),
         "{:.2f}".format(getBattHouseTemp()[0]),
+        "{:.2f}".format(getBattHouseTemp()[1]),
         "{:.2f}".format(getBattHouseTemp()[2]))
 
     return vals
@@ -595,47 +684,30 @@ def getMinMax(arr):
 
 # Get NMEA data from socket to remote server
 def nmeaReader():
-
-    # Socket to pull data from NMEA host
-    tn = Telnet()
-    disconnected = True
-
-    # Socket to push deltas to SignalK server
-    signalK_nmea = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
+    
     # Keep trying to start a connection forever
     while True:
-
-        # Until NMEA server is reached, try to connect every 10 seconds
-        while(disconnected):
-            try:
-                tn.open(nmeaHost, nmeaPort, 5)
-                disconnected = False
-            except socket.timeout:
-                logging.debug("NMEA Connection Timeout") # This happens whenever plotter is off
-            except ConnectionRefusedError:
-                logging.warning("NMEA Connection Refused")
-            except OSError:
-                logging.warning("NMEA connection unavailable due to OS Error")
+        s = None
+        try:
+            # Replace deprecated telnetlib with socket
+            s = socket.create_connection((nmeaHost, nmeaPort), timeout=10)
+            # Make a file-like object for easy line reading
+            f = s.makefile('r', encoding='utf-8', errors='replace')
+            
+            logging.info(f"Connected to NMEA source at {nmeaHost}:{nmeaPort}")
+            
+            while True:
+                line = f.readline()
+                if not line:
+                    raise EOFError("Connection closed")
+                nmea_process(line.strip())
+                
+        except (socket.timeout, ConnectionRefusedError, OSError, EOFError) as e:
+            logging.debug(f"NMEA Connection/Read Error: {e}")
+        finally:
+            if s:
+                s.close()
             time.sleep(10)
-
-        # Keep pulling data while the server is accessible
-        while (not disconnected):
-            try:    # Read and process an NMEA message
-                #response = func_timeout(20, tn.read_until, [(b"\r\n")])
-                response = func_timeout(20, tn.read_until, [(b"\n")])
-                nmea_process(response.decode("utf-8").strip())
-                # Re-enable this if SignalK were not getting data from NMEA2000 for any reason
-                # signalK_nmea.sendto(response, ("127.0.0.1", 2626))
-            except FunctionTimedOut:
-                logging.info("NMEA read timed out")
-                disconnected = True
-            except ConnectionResetError:
-                logging.info("NMEA connection reset")
-                disconnected = True
-            except EOFError:
-                logging.info("NMEA Read Error")
-                disconnected = True
 
 # Helper function to save NMEA data
 def nmea_process(line):
@@ -649,79 +721,13 @@ def nmea_process(line):
                 setLastNav(datetime.datetime.now())
                 setLocation(parts[2] + "," + parts[4])
                 logging.debug("Got location:" + parts[2] + "N, " + parts[4] + "W")
+            
         else:
             logging.warning("Invalid NMEA String Received: " + line)
 
-# Read file handle to DS1820 thermometer
-def read_temp_raw(filename):
-    # Provide default reading if hardware is unavailable
-    lines = ["cd 00 4b 46 7f ff 03 10 77 : crc=77 YES",
-        "cd 00 4b 46 7f ff 03 10 77 t=00000"]
-    try:
-        f = open(filename, 'r')
-        lines = f.readlines()
-        f.close()
-    except IOError:
-        logging.warning("Could not read thermometer " + filename)
-    return lines
 
-# Periodically get temperature readings
-def read_temp():
-
-    #cabin_therm = '/home/pi/PiForBoatPy/testTmp'
-    #engine_therm = '/home/pi/PiForBoatPy/testTmp'
-    #exhaust_therm = '/home/pi/PiForBoatPy/testTmp'
-    engine_therm = "/sys/bus/w1/devices/" + engine_therm_id + "/w1_slave"
-    cabin_therm = "/sys/bus/w1/devices/" + cabin_therm_id + "/w1_slave"
-    exhaust_therm = "/sys/bus/w1/devices/" + exhaust_therm_id + "/w1_slave"
-
+def read_ssid():
     while True:
-        lines = read_temp_raw(cabin_therm)
-        try:
-            while lines[0].strip()[-3:] != 'YES':
-                time.sleep(0.2) # Example code had this; not sure why
-                lines = read_temp_raw(cabin_therm)
-            equals_pos = lines[1].find('t=')
-            if equals_pos != -1:
-                temp_string = lines[1][equals_pos+2:]
-                temp_c = float(temp_string) / 1000.0
-                temp_f = temp_c * 9.0 / 5.0 + 32.0
-                setTempCabin(temp_f)
-        except IndexError:
-            logging.warning("Could not read cabin thermometer")
-
-        lines = read_temp_raw(engine_therm)
-        try:
-            while lines[0].strip()[-3:] != 'YES':
-                time.sleep(0.2)
-                lines = read_temp_raw(engine_therm)
-            equals_pos = lines[1].find('t=')
-            if equals_pos != -1:
-                temp_string = lines[1][equals_pos+2:]
-                temp_c = float(temp_string) / 1000.0
-                temp_f = temp_c * 9.0 / 5.0 + 32.0
-                setTempEngine(temp_f)
-        except IndexError:
-            logging.warning("Could not read engine thermometer")
-
-        lines = read_temp_raw(exhaust_therm)
-        try:
-            while lines[0].strip()[-3:] != 'YES':
-                time.sleep(0.2)
-                lines = read_temp_raw(exhaust_therm)
-            equals_pos = lines[1].find('t=')
-            if equals_pos != -1:
-                temp_string = lines[1][equals_pos+2:]
-                temp_c = float(temp_string) / 1000.0
-                temp_f = temp_c * 9.0 / 5.0 + 32.0
-                setTempExhaust(temp_f)
-        except IndexError:
-            logging.warning("Could not read exhaust thermometer")
-
-        nmea_log("TMP", ("{:.2f}".format(getTempCabin()[1]) + "," +
-                 "{:.2f}".format(getTempEngine()[1]) + "," +
-                 "{:.2f}".format(getTempExhaust()[1])))
-
         # Get connected SSID every 2 minutes too
         try:
             output = subprocess.check_output(['iwgetid'])
@@ -729,28 +735,72 @@ def read_temp():
         except Exception:
             logging.warning("Failed to get wifi SSID")
         
-        time.sleep(120) # Get temperature every 2 minutes
+        if(DEBUG):
+            time.sleep(120) # Maybe make this faster for some debugging
 
-# Periodically read ADXL345 accelerometer and save heel angle
-def readerAccel():
-    accelerometer = ADXL345()
-    accelerometer.setBandwidthRate(0x05) #1.56 Hz
+        else:
+            time.sleep(120) # Get temperature every 2 minutes
+
+def read_bme680():
+
+    bme680 = adafruit_bme680.Adafruit_BME680_I2C(i2c, debug=False)
 
     while True:
-        axes = accelerometer.getAxes(True)
+        try:
+            temp = bme680.temperature * 9.0 / 5.0 + 32.0  # Convert to Fahrenheit
+            pressure = bme680.pressure
+            humidity = bme680.humidity
+            gas = (bme680.gas)/1000
 
-        # Get 5 point average of heel angle
-        heels = []
-        for i in range(5):
-            heels.append(math.atan2(axes['y'], axes['z']) * -57.3)
+            setTempCabin(temp)
+            setGasLevel(round(gas))
+            setPressure(pressure)
+            setHumidity(humidity)
+            nmea_log("BME", "{:.2f},{:.2f},{:.2f},{:.2f}".format(temp, pressure, humidity, gas))
+        except:
+            logging.warning("Failed to read BME680 sensor")
 
-        # Pre-calibrated level adjustment applied by setHeel
-        setHeel(statistics.mean(heels))
+        time.sleep(60)
 
-        nmea_log("ACC", "{:.1f}".format(getHeel()[1]))
+# Get heel from netorked triducer (if active) or attached accelerometer
+def readerAccel():
+    accelerometer = adafruit_adxl34x.ADXL343(i2c)
+    timestamp = ""
+    while True:
+        needADXL = True
+        try:
+            attitude = requests.get("http://localhost:3000/signalk/v1/api/vessels/self/navigation/attitude").json()
+            if attitude["$source"] != "PiForBoat":
+                needADXL = False
+                if(attitude["timestamp"] == timestamp):
+                    needADXL = True
+                else:
+                    setHeel(float(attitude["value"]["roll"]), False)
+                timestamp = attitude["timestamp"]
+
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            logging.debug(f"Failed to read networked heel ({e}); falling back to ADXL")
+            needADXL = True
+
+        if needADXL:
+            try:
+                # Get 5 point average of heel angle
+                heels = []
+                for i in range(5):
+                    axes = accelerometer.acceleration
+
+                    heels.append(math.atan2(axes[1], axes[2]))
+
+                # Pre-calibrated level adjustment applied by setHeel
+                setHeel(statistics.mean(heels), True)
+
+                nmea_log("ACC", "{:.1f}".format(getHeel()[1]))
+                time.sleep(4.0)
+            except(OSError, ValueError):
+                logging.warning("Failed to read accelerometer")
 
         time.sleep(1.0)
-   
+
 # Auxiliary function to get tank level from voltage
 def waterMapper(voltage):
     if(voltage<water_cutoff_1_quarter):
@@ -766,8 +816,9 @@ def waterMapper(voltage):
 
 # Retrieve data from ADS1115
 def readerADC():
-    i2c = busio.I2C(board.SCL, board.SDA)
     ads = ADS.ADS1115(i2c)
+    chan_water1 = AnalogIn(ads, ADS.P0)
+    chan_water2 = AnalogIn(ads, ADS.P1)
 
     water1 = 0
     water2 = 0
@@ -778,29 +829,30 @@ def readerADC():
 
         water1_raw=0
         water2_raw=0
-        GPIO.output(VOC_EN, GPIO.LOW)
+        # GPIO.output(VOC_EN, GPIO.LOW)
         t_end = time.time() + 23
         try:
             while(time.time() < t_end):
-                water1_raw = max(water1_raw, AnalogIn(ads, ADS.P0).voltage)
-                water2_raw = max(water2_raw, AnalogIn(ads, ADS.P1).voltage)
+                water1_raw = max(water1_raw, chan_water1.voltage)
+                water2_raw = max(water2_raw, chan_water2.voltage)
+                time.sleep(0.05)
             logging.debug("Water1 Raw: " + str(water1_raw))
             logging.debug("Water2 Raw: " + str(water2_raw))
 
             water1 = waterMapper(water1_raw)
             water2 = waterMapper(water2_raw)
 
-            voc = AnalogIn(ads, ADS.P3).voltage * 100.0
-            GPIO.output(23, GPIO.HIGH)
+            # voc = AnalogIn(ads, ADS.P3).voltage * 100.0
+            # GPIO.output(23, GPIO.HIGH)
 
             setWater1(water1)
             setWater2(water2)
             setFuel(fuel)
-            setGasLevel(voc)
+            # setGasLevel(voc)
             nmea_log("TNK", str(water1) + ", " + str(water2) + ", " + str(fuel))
-            nmea_log("GAS", str(voc))
+            # nmea_log("GAS", str(voc))
 
-        except OSError:
+        except (OSError, ValueError):
             logging.warning("Failed to read from ADS1115")
 
         if(DEBUG):
@@ -831,7 +883,7 @@ def nmea_save():
 
 # Send SQL statement to insert values
 def sql_home(vals):
-    BoatServer = mysql.connector.connect(
+    BoatServer = mariadb.connect(
         host=mysql_host,
         user=mysql_user,
         password=mysql_password,
@@ -877,12 +929,78 @@ def phone_home():
         try:
             sql_home(getVals())
             resetMinMax()
-        except mysql.connector.Error as err:
-            logging.warning("Failed to send data to SQL")
+        except mariadb.Error as err:
+            logging.warning("Failed to send data to SQL: " + str(err))
             time.sleep(30)
             continue
 
         time.sleep(delayTime)
+
+# Use ML polar Model to predict SOG        
+def polar_predict():
+    model = pickle.load(open(PATH + "MLP_Simple_gws_confirmed.dmp", 'rb'))
+    scaler = pickle.load(open(PATH + "MLP_Simple_gws_confirmed_scaler.dmp", 'rb'))
+    while True:
+
+        ready = 1
+        try:
+            gwa_raw = requests.get("http://localhost:3000/signalk/v1/api/vessels/self/environment/wind/angleTrueGroundAverage").json()["value"] / math.pi * 180
+            gws_raw = requests.get("http://localhost:3000/signalk/v1/api/vessels/self/environment/wind/speedOverGroundAverage").json()["value"] * 1.94384
+        except:
+            ready = 0
+            gwa_raw = 0
+            gws_raw = 0
+            
+        if(ready == 1):
+            frame = pd.DataFrame(
+                {
+                    'GWA (Rolling)': [gwa_raw],
+                    'GWS (Rolling)': [gws_raw],
+                }
+            )
+            tf_scaled = scaler.transform(frame)
+
+            out = model.predict(tf_scaled)[0]
+
+            setPolarTarget(out)
+        time.sleep(2)
+
+# Class for handling Govee BTLE updates
+# Expects to read a file at /var/log/goveebttemplogger/gvh-<mac>...
+# File is generated by service from https://github.com/wcbonner/GoveeBTTempLogger
+class Govee_Handler(FileSystemEventHandler):
+    last_time = "00:00:00"
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+        
+        try:
+            logging.debug(f"Handling Govee Event in {event.src_path}")
+            if refrigerator_govee in event.src_path:
+                with open(event.src_path, 'rb') as f:
+                    try:  # catch OSError in case of a one line file 
+                        f.seek(-2, os.SEEK_END)
+                        while f.read(1) != b'\n':
+                            f.seek(-2, os.SEEK_CUR)
+                    except OSError:
+                        f.seek(0)
+                    
+                    last_line = f.readline().decode('utf-8', errors='ignore').strip()
+                    if not last_line:
+                        return
+
+                    parts = last_line.split()
+                    if len(parts) < 3:
+                        return
+
+                    timestamp = parts[1]
+                    if timestamp != self.last_time:
+                        temp = round(float(parts[2]) * 9/5 + 32, 1)
+                        logging.debug("Got Temperature: " + str(temp))
+                        setFridgeTemp(temp)
+                        self.last_time = timestamp
+        except Exception as e:
+            logging.error(f"Error in Govee_Handler: {e}")
 
 # Main function to start threads and execute
 def PiForBoatPy():
@@ -908,22 +1026,26 @@ def PiForBoatPy():
     GPIO.add_event_detect(BILGE_PIN, GPIO.RISING, callback=bilgeOn, bouncetime=500)
 
     # Start listening for RFM69 packets
-    rfm69.listen()
-    GPIO.setup(RFM69_G0, GPIO.IN)
-    GPIO.add_event_detect(RFM69_G0, GPIO.RISING, callback=rfm69_callback)
+    if(RADIO_EQUIPPED):
+        rfm69.listen()
+        GPIO.setup(RFM69_G0, GPIO.IN)
+        GPIO.add_event_detect(RFM69_G0, GPIO.RISING, callback=rfm69_callback)
 
     # Initialize VOC sensor and disable the heater for now
-    GPIO.setup(VOC_EN, GPIO.OUT)
-    GPIO.output(VOC_EN, GPIO.HIGH)
+    # GPIO.setup(VOC_EN, GPIO.OUT)
+    # GPIO.output(VOC_EN, GPIO.HIGH)
 
-    # ADXL345 Acceleromoter
-    threadAccel = threading.Thread(target=readerAccel, args=())
+    # ADXL343 Acceleromoter
+    if(ACCEL_EQUIPPED):
+        threadAccel = threading.Thread(target=readerAccel, args=())
 
-    # DS18B20 thermometers
-    threadTemp = threading.Thread(target=read_temp, args=())
+    # BME 680 Temp/Humidity/Pressure/VOCs
+    if(BME_EQUIPPED):
+         thread_bme = threading.Thread(target=read_bme680, args=())
 
     # ADS1115 ADC
-    threadADC = threading.Thread(target=readerADC, args=())
+    if(ADS_EQUIPPED):
+        threadADC = threading.Thread(target=readerADC, args=())
 
     # NMEA-style file saving
     threadNmeaLog = threading.Thread(target=nmea_save, args=())
@@ -933,15 +1055,34 @@ def PiForBoatPy():
 
     # Save data from NMEA network
     threadNmeaIn = threading.Thread(target=nmeaReader, args=())
+    
+    # Predict speed based on conditions and polar model
+    threadPolar = threading.Thread(target=polar_predict, args=())
+
+    # Get SSID every 2 minutes
+    threadSSID = threading.Thread(target=read_ssid, args=())
 
     # Start gathering data
     threadNmeaLog.start()
     #threadRFM69.start()
-    threadAccel.start()
-    threadTemp.start()
+    if(ACCEL_EQUIPPED):
+        threadAccel.start()
+    if(BME_EQUIPPED):
+        thread_bme.start()
+
+    threadSSID.start()
     threadNmeaIn.start()
     threadPhoneHome.start()
-    threadADC.start()
+    if(ADS_EQUIPPED):
+        threadADC.start()
+    threadPolar.start()
+
+    # Handle Govee thermometer data
+    govee_handler = Govee_Handler()
+    observer = Observer()
+
+    observer.schedule(govee_handler, "/var/log/goveebttemplogger", recursive=True)
+    observer.start()
 
     atexit.register(shutdown) # Do this on shutdown
     signal.signal(signal.SIGTERM, shutdown_sigterm)

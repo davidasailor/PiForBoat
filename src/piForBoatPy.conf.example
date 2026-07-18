@@ -1,24 +1,23 @@
-[default]
-heelOffset=77.82
+[YOUR_BOAT_NAME]
+# Replace YOUR_BOAT_NAME with your boat name (no spaces recommended, e.g. [MyBoat]).
+# The first section header in this config file is dynamically detected as the BOAT_NAME in the code.
+heelOffset=0.0
 factorBattHouse = 1.0
-factorBattEngine = 0.00137868
-factorBattAux = 0.00136809
-factorAmps=0.25
-factorFuel=1
-factorRPMs=6.0
-nmeaHost=192.168.26.86
+factorBattEngine = 1.0
+factorBattAux = 1.0
+factorAmps=1.0
+factorFuel=1.0
+factorRPMs=1.0
+nmeaHost=192.168.1.1
 nmeaPort=10110
-#nmeaHost=127.0.0.1
-#nmeaPort=11000
-ampHours=2.0
-engine_therm_id=28-0000072e0c34
-cabin_therm_id=28-000007c5c95a
-exhaust_therm_id=28-00000917310d
 water_cutoff_full = 1.5
 water_cutoff_3_quarters = 1.2
 water_cutoff_2_quarters = 0.78
 water_cutoff_1_quarter = 0.4
-mysql_host=192.168.5.1
+mysql_host=REPLACE_ME
 mysql_user=REPLACE_ME
-mysql_password=REPLACE_ME_TOO
+mysql_password=REPLACE_ME
 mysql_database=BoatServer
+refrigerator_govee=REPLACE_ME_WITH_GOVEE_MAC_OR_ID
+fallback_net="Hotspot SSID"
+preferred_net="Marina SSID"

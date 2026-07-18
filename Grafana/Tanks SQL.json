@@ -1,55 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_MYSQL",
-      "label": "MySQL",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "mysql",
-      "pluginName": "MySQL"
-    },
-    {
-      "name": "DS_INFLUXDB",
-      "label": "InfluxDB",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    }
-  ],
-  "__elements": [],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "8.5.2"
-    },
-    {
-      "type": "datasource",
-      "id": "influxdb",
-      "name": "InfluxDB",
-      "version": "1.0.0"
-    },
-    {
-      "type": "datasource",
-      "id": "mysql",
-      "name": "MySQL",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -75,16 +24,15 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 17,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
-      },
       "description": "",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 2,
         "w": 3,
@@ -92,18 +40,23 @@
         "y": 0
       },
       "id": 6,
-      "links": [],
       "options": {
-        "content": "<br>\r\n<a href=\"https://home_based_server.com.com/d/V_4SWBA7z/quicklook-sql\">Return Home</a> ",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<br>\r\n<a href=\"https://grafana.davidjarty.com/d/V_4SWBA7z/quicklook-sql\">Return Home</a> ",
         "mode": "markdown"
       },
-      "pluginVersion": "8.5.2",
+      "pluginVersion": "12.0.0-85100",
+      "title": "",
       "type": "text"
     },
     {
       "datasource": {
         "type": "mysql",
-        "uid": "${DS_MYSQL}"
+        "uid": "c73A7kKSk"
       },
       "description": "",
       "fieldConfig": {
@@ -112,9 +65,13 @@
             "mode": "thresholds"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "scheme",
@@ -123,6 +80,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 5,
@@ -146,8 +104,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
+                "color": "red"
               },
               {
                 "color": "orange",
@@ -173,20 +130,22 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.3",
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "datasource": {
             "type": "mysql",
-            "uid": "${DS_MYSQL}"
+            "uid": "c73A7kKSk"
           },
           "format": "time_series",
           "group": [],
@@ -222,7 +181,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "${DS_MYSQL}"
+        "uid": "c73A7kKSk"
       },
       "description": "",
       "fieldConfig": {
@@ -231,9 +190,13 @@
             "mode": "thresholds"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "scheme",
@@ -242,6 +205,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 5,
@@ -265,8 +229,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
+                "color": "red"
               },
               {
                 "color": "orange",
@@ -292,20 +255,22 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.3",
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "datasource": {
             "type": "mysql",
-            "uid": "${DS_MYSQL}"
+            "uid": "c73A7kKSk"
           },
           "format": "time_series",
           "group": [],
@@ -341,7 +306,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "${DS_MYSQL}"
+        "uid": "c73A7kKSk"
       },
       "description": "",
       "fieldConfig": {
@@ -350,9 +315,13 @@
             "mode": "thresholds"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "scheme",
@@ -361,6 +330,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 5,
@@ -384,8 +354,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
+                "color": "red"
               },
               {
                 "color": "orange",
@@ -411,20 +380,22 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.3",
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "datasource": {
             "type": "mysql",
-            "uid": "${DS_MYSQL}"
+            "uid": "c73A7kKSk"
           },
           "format": "time_series",
           "group": [],
@@ -458,8 +429,8 @@
       "type": "timeseries"
     }
   ],
-  "schemaVersion": 36,
-  "style": "dark",
+  "preload": false,
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
@@ -472,6 +443,5 @@
   "timezone": "",
   "title": "Tanks SQL",
   "uid": "ev-1mVJnz",
-  "version": 6,
-  "weekStart": ""
+  "version": 5
 }

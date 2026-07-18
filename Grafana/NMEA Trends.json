@@ -1,47 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_INFLUXDB",
-      "label": "InfluxDB",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    }
-  ],
-  "__elements": [],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "8.5.2"
-    },
-    {
-      "type": "datasource",
-      "id": "influxdb",
-      "name": "InfluxDB",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "pr0ps-trackmap-panel",
-      "name": "TrackMap",
-      "version": "2.1.2"
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -67,14 +24,13 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 2,
-  "id": null,
+  "id": 16,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
       },
       "gridPos": {
         "h": 2,
@@ -84,16 +40,22 @@
       },
       "id": 18,
       "options": {
-        "content": "<br>\n<a href=\"https://home_based_server.com.com/d/9hOtzu27k/nmea-quicklook\">NMEA Dashboard</a>\n",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<br>\n<a href=\"https://grafana.davidjarty.com/d/9hOtzu27k/nmea-quicklook\">NMEA Dashboard</a>\n",
         "mode": "html"
       },
-      "pluginVersion": "8.5.2",
+      "pluginVersion": "12.0.0-85100",
+      "title": "",
       "type": "text"
     },
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "UQx-dZFSk"
       },
       "fieldConfig": {
         "defaults": {
@@ -101,9 +63,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -112,6 +78,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -133,8 +100,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
+                "color": "red"
               },
               {
                 "color": "yellow",
@@ -156,7 +122,7 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 12,
+        "w": 21,
         "x": 0,
         "y": 2
       },
@@ -165,19 +131,22 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "alias": "Speed Through Water",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -220,7 +189,7 @@
           "alias": "Speed Over Ground",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -267,7 +236,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "UQx-dZFSk"
       },
       "fieldConfig": {
         "defaults": {
@@ -275,9 +244,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -286,6 +259,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -307,8 +281,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
+                "color": "red"
               },
               {
                 "color": "green",
@@ -330,7 +303,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 21,
         "x": 0,
         "y": 11
       },
@@ -339,19 +312,22 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "alias": "Apparent Wind Speed",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -394,7 +370,7 @@
           "alias": "True Wind Speed",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -441,7 +417,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "UQx-dZFSk"
       },
       "fieldConfig": {
         "defaults": {
@@ -449,9 +425,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -460,6 +440,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -481,8 +462,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -495,7 +475,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 21,
         "x": 0,
         "y": 19
       },
@@ -504,19 +484,22 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "alias": "Course Over Ground",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -559,7 +542,7 @@
           "alias": "Heading",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -601,13 +584,12 @@
         }
       ],
       "title": "Heading",
-      "transformations": [],
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "UQx-dZFSk"
       },
       "fieldConfig": {
         "defaults": {
@@ -615,9 +597,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -626,6 +612,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -661,7 +648,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 21,
         "x": 0,
         "y": 27
       },
@@ -669,20 +656,23 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "alias": "Rudder Angle",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -728,7 +718,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "UQx-dZFSk"
       },
       "fieldConfig": {
         "defaults": {
@@ -736,9 +726,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -747,6 +741,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -782,7 +777,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 21,
         "x": 0,
         "y": 35
       },
@@ -791,19 +786,22 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "alias": "Apparent Wind Angle",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -846,7 +844,7 @@
           "alias": "True Wind Angle",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -893,7 +891,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "UQx-dZFSk"
       },
       "fieldConfig": {
         "defaults": {
@@ -901,9 +899,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -912,6 +914,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -947,7 +950,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 21,
         "x": 0,
         "y": 43
       },
@@ -955,20 +958,23 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "alias": "Wind Direction",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -1014,7 +1020,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "uid": "UQx-dZFSk"
       },
       "fieldConfig": {
         "defaults": {
@@ -1022,9 +1028,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1033,6 +1043,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1071,8 +1082,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 9,
+        "w": 21,
         "x": 0,
         "y": 51
       },
@@ -1080,20 +1091,23 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
           "alias": "Depth",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -1137,31 +1151,126 @@
       "type": "timeseries"
     },
     {
-      "autoZoom": true,
       "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "type": "datasource",
+        "uid": "-- Mixed --"
       },
-      "defaultLayer": "OpenStreetMap",
       "description": "",
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 0,
-        "y": 59
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-RdYlGr"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "noValue": ".",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "velocityknot"
+        },
+        "overrides": []
       },
-      "id": 16,
-      "lineColor": "red",
+      "gridPos": {
+        "h": 11,
+        "w": 21,
+        "x": 0,
+        "y": 60
+      },
+      "id": 20,
       "maxDataPoints": 500,
-      "pluginVersion": "7.5.11",
-      "pointColor": "royalblue",
-      "scrollWheelZoom": false,
-      "showLayerChanger": true,
+      "options": {
+        "basemap": {
+          "config": {
+            "url": "https://enc_downloader.davidjarty.com/downloader?z={z}&x={x}&y={y}"
+          },
+          "name": "Layer 0",
+          "type": "xyz"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "field": "SOG",
+                  "fixed": "#37872D"
+                },
+                "opacity": 1,
+                "rotation": {
+                  "field": "heading",
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "fixed": 5,
+                  "max": 15,
+                  "min": 2
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "location": {
+              "latitude": "lat",
+              "longitude": "lon",
+              "mode": "coords"
+            },
+            "name": "SOG",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "fit",
+          "lastOnly": false,
+          "lat": 0,
+          "layer": "Layer 1",
+          "lon": 0,
+          "zoom": 15
+        }
+      },
+      "pluginVersion": "12.0.0-85100",
       "targets": [
         {
+          "alias": "Position",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "UQx-dZFSk"
           },
           "groupBy": [
             {
@@ -1180,10 +1289,54 @@
           "measurement": "naviagion.position",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT last(\"lat\"), last(\"lon\") FROM \"navigation.position\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "query": "SELECT last(\"lat\") as \"lat\", last(\"lon\") as \"lon\" FROM \"navigation.position\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
           "rawQuery": true,
           "refId": "A",
-          "resultFormat": "time_series",
+          "resultFormat": "table",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        },
+        {
+          "alias": "SOG",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "UQx-dZFSk"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "linear"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "navigation.speedOverGround",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT mean(\"value\") *1.944 as \"SOG\" FROM \"navigation.speedOverGround\" WHERE $timeFilter GROUP BY time($__interval) fill(linear)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "table",
           "select": [
             [
               {
@@ -1202,11 +1355,18 @@
         }
       ],
       "title": "Location",
-      "type": "pr0ps-trackmap-panel"
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        }
+      ],
+      "type": "geomap"
     }
   ],
-  "schemaVersion": 36,
-  "style": "dark",
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
@@ -1219,6 +1379,5 @@
   "timezone": "",
   "title": "NMEA Trends",
   "uid": "tJkICzbnk",
-  "version": 14,
-  "weekStart": ""
+  "version": 8
 }

@@ -1,4 +1,5 @@
 DEBUG = False
+SHUNT = True
 
 import board
 import busio
@@ -9,24 +10,41 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import countio
 import Vedirect
+from adafruit_onewire.bus import OneWireBus 
+import adafruit_ds18x20
 
-uart = busio.UART(board.GP8, board.GP9, baudrate=19200, receiver_buffer_size = 1024)
-shunt = Vedirect.Vedirect()
 
-# If connected to console print debug messages
 def log(message):
     if(DEBUG):
         print(message)
 #        print(datetime.now() + message)
 
+uart = busio.UART(board.GP8, board.GP9, baudrate=19200, receiver_buffer_size = 1024)
+shunt = Vedirect.Vedirect()
+ow_bus = OneWireBus(board.GP28)
+devices = ow_bus.scan()
+log("Scanned for thermometers")
+for device in devices:
+    log("ROM = {} \tFamily = 0x{:02x}".format([hex(i) for i in device.rom], device.family_code))
+try:
+    therm1 = adafruit_ds18x20.DS18X20(ow_bus, devices[0])
+    therm2 = adafruit_ds18x20.DS18X20(ow_bus, devices[1])
+except:
+    log("Missing thermomemter")
+    therm1 = 0
+    therm2 = 0
+
 # Read VE_Direct smart shunt
 def read_ve():
-    log("Waiting for data")
+    log("Clearing Buffer")
     uart.reset_input_buffer()
+    log("Waiting for data")
     data = b''
     while "PID" not in data:
         data = b''
         data = uart.readline()
+        log ("Got a line")
+    log("Got a line with PID")
     while(str(data).count("Checksum") < 2): # Full data is in 2 blocks (at least for SmartShunt)
         data += uart.readline()
 
@@ -56,9 +74,10 @@ cs = digitalio.DigitalInOut(board.GP17)
 reset = digitalio.DigitalInOut(board.GP16)
 rfm69 = adafruit_rfm69.RFM69(spi, cs, reset, 433.0)
 rfm69.encryption_key = ( b"\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26\x26" )
+rfm69.tx_power = 20
 
 # Initialize ADS1115 ADC
-ads = ADS.ADS1115(busio.I2C(board.GP19, board.GP18), 1.0)
+ads = ADS.ADS1115(busio.I2C(board.GP13, board.GP12), 1.0)
 
 # Define counter for reading tachometer
 counter = countio.Counter(board.GP15)
@@ -66,24 +85,32 @@ counter = countio.Counter(board.GP15)
 log("Initialization Complete")
 
 while(True):
+
+    # Set default ADC values
+    chan3 = 0
+    chan12 = 0
+    chan4 = 9
     
     # Read ADC shunt and batteries
     chan3 = AnalogIn(ads, ADS.P2).value
     chan12 = AnalogIn(ads, ADS.P0, ADS.P1).value
     chan4 = AnalogIn(ads, ADS.P3).value
 
+ 
+
     # Values shouldn't be negative, so work nice as unsigned byte arrays
     if(chan3 < 0):
         chan3 = 0
+    # Red side of shunt is A1
+    chan12 = chan12 * -1
     if(chan12 < 0):
         chan12 = 0
     if(chan4 < 0):
         chan4 = 0
 
     # Count tach pulses for 1 second
-    # Sending RFM69 messages every second seems to cause inconsistency,
-    # But enough other things happen reading the shunt to slow this down,
-    # So 1 second is OK
+    # One second is too fast and causes RFM69 inconsistency,
+    # But other code takes enought time that 1 second is ok
     counter.reset()
     time.sleep(1)
     count = counter.count
@@ -101,10 +128,20 @@ while(True):
 
     # Read a VE_Direct packet from UART
     try:
-        ve_values = read_ve()
+        if(SHUNT):
+            ve_values = read_ve()
+        a=1
 
     except BaseException as e:
         log("Failed to read VE_Direct; Using defaults; error was: " + str(e))
+
+    temp1 = 0
+    temp2 = 0
+    # Read temperatures
+    if(therm1):
+        temp1 = therm1.temperature
+    if(therm2):
+        temp2 = therm2.temperature
 
     # Convert all ints to appropriate size byte arrays
     v_bytes = ve_values["v_int"].to_bytes(2, "big")
@@ -120,11 +157,14 @@ while(True):
     load_bytes = chan12.to_bytes(2, "big")
     revs_bytes = count.to_bytes(2, "big")
     vs_bytes = chan4.to_bytes(2, "big")
+    temp1_bytes = round(temp1*10).to_bytes(2, "big")
+    temp2_bytes = round(temp2*10).to_bytes(2, "big")
+
+    print("Building array")
     
     # Combine byte arrays into one large one for sending
-    data_arr = v_bytes + vs_bytes + i_bytes + ah_bytes + soc_bytes + ttg_bytes + dold_bytes + tsf_bytes + vt_bytes + load_bytes + revs_bytes + vs_bytes
+    data_arr = v_bytes + t_bytes + i_bytes + ah_bytes + soc_bytes + ttg_bytes + dold_bytes + tsf_bytes + vt_bytes + load_bytes + revs_bytes + vs_bytes + temp1_bytes + temp2_bytes
 
-    # Debug pring what's going to be sent
     log("Preparing to send:")
     log("House Voltage:       " + str(ve_values["v_int"]))
     log("Temperature:         " + str(ve_values["t_int"]))
@@ -138,8 +178,9 @@ while(True):
     log("Load:                " + str(chan12))
     log("Revs:                " + str(count))
     log("Start Batt Volts:    " + str(chan4))
+    log("Temp1:               " + str(temp1))
+    log("Temp2:               " + str(temp2))
 
     log("Sending packet: " + str(data_arr) + "\n")
 
-    # send the packet out the RFM69
     rfm69.send(data_arr, node=2)

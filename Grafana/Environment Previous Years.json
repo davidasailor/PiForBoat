@@ -1,41 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_INFLUXDB",
-      "label": "InfluxDB",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    }
-  ],
-  "__elements": [],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "8.5.2"
-    },
-    {
-      "type": "datasource",
-      "id": "influxdb",
-      "name": "InfluxDB",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -61,16 +24,15 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 22,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
-      },
       "description": "",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 2,
         "w": 3,
@@ -78,18 +40,23 @@
         "y": 0
       },
       "id": 10,
-      "links": [],
       "options": {
-        "content": "<br>\r\n<a href=\"https://home_based_server.com.com/d/MGOzIDmRz/quicklook\">Return Home</a> ",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<br>\r\n<a href=\"https://grafana.davidjarty.com/d/MGOzIDmRz/quicklook\">Return Home</a> ",
         "mode": "markdown"
       },
-      "pluginVersion": "8.5.2",
+      "pluginVersion": "12.2.0-92475",
+      "title": "",
       "type": "text"
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "type": "datasource",
+        "uid": "-- Mixed --"
       },
       "fieldConfig": {
         "defaults": {
@@ -98,17 +65,22 @@
             "mode": "thresholds"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
-            "gradientMode": "none",
+            "gradientMode": "scheme",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "pointSize": 5,
@@ -131,7 +103,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": null
+                "value": 0
               },
               {
                 "color": "yellow",
@@ -161,20 +133,23 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-92475",
       "targets": [
         {
           "alias": "Temperature",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "zRJI1WFIk"
           },
           "groupBy": [
             {
@@ -212,15 +187,99 @@
             ]
           ],
           "tags": []
+        },
+        {
+          "alias": "Temperature",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "V68VxWKIz"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "environment.inside.mainCabin.temperature",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT (((last(\"value\") - 273) * 1.8) +32) FROM \"environment.inside.mainCabin.temperature\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        },
+        {
+          "alias": "Temperature",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be6snssnwf4e8e"
+          },
+          "hide": false,
+          "query": "SELECT (((last(\"value\") - 273) * 1.8) +32) FROM \"environment.inside.mainCabin.temperature\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Temperature",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "bes7id2xl5x4we"
+          },
+          "hide": false,
+          "query": "SELECT (((last(\"value\") - 273) * 1.8) +32) FROM \"environment.inside.mainCabin.temperature\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
         }
       ],
       "title": "Cabin Temp",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "Temperature All Years",
+            "mode": "reduceRow",
+            "reduce": {
+              "include": [
+                "Temperature"
+              ],
+              "reducer": "mean"
+            },
+            "replaceFields": true
+          }
+        }
+      ],
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "type": "datasource",
+        "uid": "-- Mixed --"
       },
       "fieldConfig": {
         "defaults": {
@@ -228,9 +287,13 @@
             "mode": "thresholds"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -239,6 +302,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -261,7 +325,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": null
+                "value": 0
               },
               {
                 "color": "yellow",
@@ -295,19 +359,22 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-92475",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "zRJI1WFIk"
           },
           "groupBy": [
             {
@@ -326,6 +393,8 @@
           "measurement": "navigation.attitude.heel",
           "orderByTime": "ASC",
           "policy": "default",
+          "query": "SELECT last(\"value\") FROM \"navigation.attitude.heel\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -343,15 +412,93 @@
             ]
           ],
           "tags": []
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "V68VxWKIz"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "navigation.attitude.heel",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              }
+            ]
+          ],
+          "tags": []
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be6snssnwf4e8e"
+          },
+          "hide": false,
+          "query": "SELECT last(\"value\") FROM \"navigation.attitude.heel\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "bes7id2xl5x4we"
+          },
+          "hide": false,
+          "query": "SELECT last(\"value\") FROM \"navigation.attitude.heel\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
         }
       ],
       "title": "Heel",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "Heel",
+            "mode": "reduceRow",
+            "reduce": {
+              "include": [
+                "navigation.attitude.heel.last"
+              ],
+              "reducer": "mean"
+            }
+          }
+        }
+      ],
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "${DS_INFLUXDB}"
+        "type": "datasource",
+        "uid": "-- Mixed --"
       },
       "fieldConfig": {
         "defaults": {
@@ -359,9 +506,13 @@
             "mode": "thresholds"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "scheme",
@@ -370,6 +521,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "pointSize": 5,
@@ -392,7 +544,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               },
               {
                 "color": "yellow",
@@ -417,20 +569,23 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-92475",
       "targets": [
         {
           "alias": "VOCs",
           "datasource": {
             "type": "influxdb",
-            "uid": "${DS_INFLUXDB}"
+            "uid": "zRJI1WFIk"
           },
           "groupBy": [
             {
@@ -466,26 +621,109 @@
             ]
           ],
           "tags": []
+        },
+        {
+          "alias": "VOCs",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "V68VxWKIz"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "environment.inside.mainCabin.voc",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT mean(\"value\") FROM \"environment.inside.mainCabin.voc\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        },
+        {
+          "alias": "VOCs",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be6snssnwf4e8e"
+          },
+          "hide": false,
+          "query": "SELECT mean(\"value\") FROM \"environment.inside.mainCabin.voc\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "VOCs",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "bes7id2xl5x4we"
+          },
+          "hide": false,
+          "query": "SELECT mean(\"value\") FROM \"environment.inside.mainCabin.voc\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
         }
       ],
       "title": "Cabin VOC's",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "VOCs All Years",
+            "mode": "reduceRow",
+            "reduce": {
+              "include": [
+                "VOCs"
+              ],
+              "reducer": "mean"
+            },
+            "replaceFields": true
+          }
+        }
+      ],
       "type": "timeseries"
     }
   ],
-  "schemaVersion": 36,
-  "style": "dark",
+  "preload": false,
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-24h",
-    "to": "now"
+    "from": "now-1y/y",
+    "to": "now-1y/y"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Environment",
-  "uid": "WsT3s-h7z",
-  "version": 8,
-  "weekStart": ""
+  "title": "Environment Previous Years",
+  "uid": "o30CTaFIk",
+  "version": 10
 }
