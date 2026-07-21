@@ -273,6 +273,7 @@ def rfm69_callback(rfm69_irq):
                         ", " + "{:.2f}".format(getAmps()[1]) +
                         ", " + "{:.2f}".format(getBattHouseTemp()[1] ))
                 if(revs_int > 1):
+                    # Should multiply by factorRPMs, but that would be inconsistent with old logs
                     nmea_log("RPM", "{:.0f}".format(revs_int))
 
                 nmea_log("EGT", "{:.2f}".format(getTempEngine()[1]) + 
