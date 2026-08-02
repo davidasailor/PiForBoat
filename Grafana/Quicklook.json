@@ -103,31 +103,6 @@
       "type": "text"
     },
     {
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 15,
-        "y": 0
-      },
-      "id": 63,
-      "options": {
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        },
-        "content": "<br>\n<a href=\"https://grafana.davidjarty.com/dashboards/f/ceaiu7jplga2oa/\">Previous Years</a>\n",
-        "mode": "html"
-      },
-      "pluginVersion": "12.2.0-92475",
-      "title": "",
-      "type": "text"
-    },
-    {
       "datasource": {
         "type": "influxdb",
         "uid": "UQx-dZFSk"
@@ -157,7 +132,7 @@
       "gridPos": {
         "h": 2,
         "w": 6,
-        "x": 18,
+        "x": 15,
         "y": 0
       },
       "id": 55,
@@ -199,7 +174,7 @@
               "type": "fill"
             }
           ],
-          "measurement": "electrical.batteries.Engine.voltage",
+          "measurement": "electrical.batteries.House.voltage",
           "orderByTime": "ASC",
           "policy": "default",
           "query": "SELECT last(\"value\") FROM \"electrical.batteries.Engine.voltage\"\n",
@@ -1072,11 +1047,11 @@
               "type": "fill"
             }
           ],
-          "hide": true,
+          "hide": false,
           "measurement": "tanks.fuel.main.currentLevel",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT last(\"value\") FROM \"tanks.fuel.main.currentLevel\" WHERE $timeFilter GROUP BY time($__interval) ORDER BY DESC LIMIT 1",
+          "query": "SELECT last(\"value\") FROM \"tanks.fuel.main.currentLevel\" WHERE $timeFilter ORDER BY DESC LIMIT 1",
           "rawQuery": true,
           "refId": "C",
           "resultFormat": "time_series",
@@ -2860,5 +2835,5 @@
   "timezone": "",
   "title": "Quicklook",
   "uid": "MGOzIDmRz",
-  "version": 40
+  "version": 43
 }

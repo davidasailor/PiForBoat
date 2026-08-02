@@ -26,7 +26,6 @@
   "graphTooltip": 0,
   "id": 25,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
       "datasource": {
@@ -53,7 +52,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               },
               {
                 "color": "red",
@@ -62,7 +61,80 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 162
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TWS"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 74
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TWD"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SOG"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 94
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "COG"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AWS"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 11,
@@ -82,9 +154,10 @@
           "show": false
         },
         "frameIndex": 0,
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": []
       },
-      "pluginVersion": "11.0.0",
+      "pluginVersion": "12.2.0-92475",
       "targets": [
         {
           "alias": "TWS",
@@ -109,7 +182,7 @@
           "measurement": "environment.wind.speedTrue",
           "orderByTime": "DESC",
           "policy": "default",
-          "query": "SELECT mean(\"value\") * 1.944 FROM \"environment.wind.speedTrue\" WHERE $timeFilter GROUP BY time($__interval) fill(null) ORDER BY time DESC",
+          "query": "SELECT mean(\"value\") * 1.944 FROM \"environment.wind.speedOverGround\" WHERE $timeFilter GROUP BY time($__interval) fill(null) ORDER BY time DESC",
           "rawQuery": true,
           "refId": "A",
           "resultFormat": "time_series",
@@ -274,6 +347,7 @@
           "resultFormat": "time_series"
         }
       ],
+      "title": "",
       "transformations": [
         {
           "id": "joinByField",
@@ -295,7 +369,8 @@
       "type": "table"
     }
   ],
-  "schemaVersion": 39,
+  "preload": false,
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
@@ -304,11 +379,9 @@
     "from": "now-1h",
     "to": "now"
   },
-  "timeRangeUpdatedDuringEditOrView": false,
   "timepicker": {},
   "timezone": "",
   "title": "Tabular Data",
   "uid": "9o52pQJIz",
-  "version": 11,
-  "weekStart": ""
+  "version": 14
 }
