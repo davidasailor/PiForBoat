@@ -259,7 +259,6 @@ def rfm69_callback(rfm69_irq):
                 setRevs(revs_int)
                 setBattHouseTemp(temp_float)
 
-                # TODO: Check that engine and exhaust aren't flipped
                 setTempEngine(temp1_float * 9.0 / 5.0 + 32.0) # Convert to Fahrenheit
                 setTempExhaust(temp2_float * 9.0 / 5.0 + 32.0) # Convert to Fahrenheit
 
@@ -486,7 +485,6 @@ def setWater2(level):
 def getWater2():
     return water2
 
-# TODO: Fix this based on actual voltage readings
 def setFuel(level):
     global fuel
     with measurement_lock:
@@ -862,7 +860,6 @@ def readerADC():
             time.sleep(300) # Only tie up I2C for 23 seconds every 5 mintues, since accellerometer needs it too
 
 # Helper function to enqueue data to log
-# TODO: Make robust enough to handle EST in addition to EDT?
 def nmea_log(type, message):
     if(not type==""):
         str_to_put = ("$PI" + type + "," + message)
