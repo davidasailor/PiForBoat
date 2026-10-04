@@ -24,6 +24,16 @@ At this time two remote sensing options are supported for the refrigerator:
 
 The Pi connects via VPN to a home based server running the Grafana presentation web application.  Grafana is configured to pull data from the Pi's InfluxDB database and present dashboards and historical graphs.  Periodically the Pi also sends its measurements to the home based server for storage in a MariaDB database.  Additional Grafana dashboards pull from the home server's MariaDB database to present the data when needed.  The MariaDB data is less real-time and much lower resolution, but allows the measurements to be viewed when the Pi is out of wifi or cell communication, preventing the Grafana->InfluxDB pulls.  Pi connectivity is provided by a hotspot on the boat and marina wifi. An automated switching script (using `nmcli`) dynamically connects to the preferred marina wifi when available to minimize hotspot bandwidth. This script also automates local Docker services, starting the `cloudflare` tunnel stack if the WireGuard VPN link is down, and managing the `hawser` stack based on connection to the preferred marina wifi.
 
+Additionally, the central Pi features a webhook-based notification engine integrated with Home Assistant to push critical alarms to mobile devices. Monitored conditions include:
+  - Bilge pump activation (immediate alert)
+  - Continuous bilge pump runtime exceeding 60 seconds (critical alert)
+  - Engine exhaust temperature exceeding 110 °F while running
+  - Engine coolant temperature exceeding 165 °F while running
+  - Battery bank overvoltage exceeding 14.5V on House, Engine, or Thruster banks
+  - Boat stopped charging (House battery voltage drops below 13.0V)
+  - House battery low voltage warning (< 11.5V) and critical low voltage (< 10.5V)
+Notifications are stored in a persistent, on-disk FIFO queue with exponential retry backoff, ensuring that alerts generated while out of cell range are preserved and reliably delivered once cellular or marina connectivity is restored.
+
 <H2>Alternatives</h2>
 When I started this project several years ago the Open Source alternatives that now exist weren't built yet, were relatively immature, or I just didn't know about them.  I wanted to build something to meet my needs as closely as possible without unnecessary complications, and I wanted to take the opportunity to learn new things.  Some very capable packages now exist that are worth considering for someone looking for a more out-of-the-box solution.  This list is not intended to be comprehensive, but the alternatives I know about are:
   

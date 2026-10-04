@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+Log.nmea
+pending_notifications.json
+pending_notifications.json.tmp
+persistent_data
+piForBoatPy.conf
+src/piForBoatPy.conf

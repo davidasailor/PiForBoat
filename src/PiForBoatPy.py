@@ -41,6 +41,8 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import os
 import glob
+import json
+import uuid
 import adafruit_bme680
 
 PS = 13 # Pin for sensing power state
@@ -133,20 +135,33 @@ mysql_user = configs["mysql_user"]
 mysql_password = configs["mysql_password"]
 mysql_database = configs["mysql_database"]
 refrigerator_govee = configs["refrigerator_govee"]
+ha_webhook_url = configs.get("ha_webhook_url", "").strip().strip('"').strip("'")
 
 # Load persistent values saved from previous shutdown
 oldValues = configparser.ConfigParser()
 oldValues.read(PATH + 'persistent_data')
-oldValuesMine = oldValues["OldValues"]
-ampHours = float(oldValuesMine["ampHours"])
-bilgeTime = datetime.datetime.strptime(oldValuesMine["bilgeTime"],
-                                            "%Y-%m-%d %H:%M:%S.%f")
-lastNav = datetime.datetime.strptime(oldValuesMine["lastNav"],
-                                            "%Y-%m-%d %H:%M:%S.%f")
-location = oldValuesMine["location"]
-bilge = int(oldValuesMine["bilgeCount"])
+if "OldValues" in oldValues:
+    oldValuesMine = oldValues["OldValues"]
+    if "ampHours" in oldValuesMine:
+        ampHours = float(oldValuesMine["ampHours"])
+    if "bilgeTime" in oldValuesMine:
+        try:
+            bilgeTime = datetime.datetime.strptime(oldValuesMine["bilgeTime"], "%Y-%m-%d %H:%M:%S.%f")
+        except ValueError:
+            bilgeTime = datetime.datetime.now()
+    if "lastNav" in oldValuesMine:
+        try:
+            lastNav = datetime.datetime.strptime(oldValuesMine["lastNav"], "%Y-%m-%d %H:%M:%S.%f")
+        except ValueError:
+            lastNav = datetime.datetime.now()
+    if "location" in oldValuesMine:
+        location = oldValuesMine["location"]
+    if "bilgeCount" in oldValuesMine:
+        bilge = int(oldValuesMine["bilgeCount"])
 
 measurement_lock = threading.Lock() # Thread safety for measurements
+bilge_running = False
+bilge_lock = threading.Lock()
 
 # Queue and file for storing output
 nmea_queue = queue.Queue()
@@ -159,37 +174,75 @@ signalK = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 i2c = busio.I2C(board.SCL, board.SDA)
 
 def bilge_monitor_task(onTime):
-    logging.warning("Bilge pump monitor started")
-    setBilgeTime(onTime)
-    incBilge()
+    global bilge_running
+    try:
+        logging.warning("Bilge pump monitor started")
+        setBilgeTime(onTime)
+        incBilge()
 
-    stillRunning = False
-    # Monitor for up to 120 seconds
-    endTime = datetime.datetime.now() + datetime.timedelta(seconds=120)
-    
-    while datetime.datetime.now() < endTime:
-        if not GPIO.input(BILGE_PIN):
-            break
+        continuous_alert_sent = False
+        consecutive_low = 0
+        REQUIRED_LOW_COUNT = 3  # Require pin to stay LOW for 3 consecutive checks to confirm pump shutoff
+
+        while True:
+            time.sleep(1.0)
+
+            if GPIO.input(BILGE_PIN):
+                consecutive_low = 0
+            else:
+                consecutive_low += 1
+                if consecutive_low >= REQUIRED_LOW_COUNT:
+                    break
+
+            elapsed = (datetime.datetime.now() - onTime).total_seconds()
+            if elapsed >= 60 and not continuous_alert_sent:
+                notification_manager.notify_event(
+                    title="Continuous Bilge Pump Alert",
+                    message=f"Bilge pump has been running continuously for over 60 seconds (since {onTime.strftime('%Y-%m-%d %H:%M:%S')}).",
+                    critical=True
+                )
+                continuous_alert_sent = True
+
+        duration = max(0.0, (datetime.datetime.now() - onTime).total_seconds() - consecutive_low)
+        logging.warning(f"Bilge stopped. Ran for {duration:.1f}s")
+        try:
+            sql_home(getVals())
+        except Exception as sql_err:
+            logging.error(f"Error saving bilge event to SQL: {sql_err}")
+    except Exception as e:
+        logging.error(f"Error in bilge monitor task: {e}")
+    finally:
+        # Allow line/inductive noise to settle before accepting new rising edge triggers
         time.sleep(1.0)
-
-    if GPIO.input(BILGE_PIN):
-        stillRunning = True
-        logging.warning("Continuous bilge since " + str(onTime))
-    else:
-        logging.warning(f"Bilge stopped. Ran for {(datetime.datetime.now()-onTime).total_seconds()}s")
-    
-    sql_home(getVals())
+        with bilge_lock:
+            bilge_running = False
 
 # Callback for bilge pump turning on
 def bilgeOn(channel):
+    global bilge_running
+    # If the bilge pump is already actively running and monitored, ignore spurious interrupts
+    with bilge_lock:
+        if bilge_running:
+            return
+
     # Debounce manually
     time.sleep(0.5)
     if not GPIO.input(BILGE_PIN):
         logging.warning("Bilge reader pin bounced; disregarding")
         return
-        
-    # Offload the long-running task to a new thread so we don't block other interrupts
+
+    with bilge_lock:
+        if bilge_running:
+            return
+        bilge_running = True
+
     onTime = datetime.datetime.now()
+    notification_manager.notify_event(
+        title="Bilge Pump Activated",
+        message=f"Bilge pump activated at {onTime.strftime('%Y-%m-%d %H:%M:%S')}.",
+        critical=True
+    )
+    # Offload the long-running task to a new thread so we don't block other interrupts
     t = threading.Thread(target=bilge_monitor_task, args=(onTime,))
     t.start()
 
@@ -312,6 +365,180 @@ def send_delta(path, value, is_str=False):
     signalK.sendto(delta, ("127.0.0.1", SIGNALK_PORT))
 
 
+# Notification Subsystem
+class NotificationQueue:
+    def __init__(self, storage_path):
+        self.file_path = os.path.join(storage_path, "pending_notifications.json")
+        self._lock = threading.Lock()
+        self._event = threading.Event()
+        self._queue = []
+        self._load()
+
+    def _load(self):
+        with self._lock:
+            if os.path.exists(self.file_path):
+                try:
+                    with open(self.file_path, 'r') as f:
+                        data = json.load(f)
+                        if isinstance(data, list):
+                            self._queue = data
+                            logging.info(f"Loaded {len(self._queue)} pending notifications from storage.")
+                            if self._queue:
+                                self._event.set()
+                except Exception as e:
+                    logging.error(f"Failed to load pending notifications: {e}")
+                    self._queue = []
+
+    def _save(self):
+        # Assumes self._lock is held
+        try:
+            temp_path = self.file_path + ".tmp"
+            with open(temp_path, 'w') as f:
+                json.dump(self._queue, f, indent=2)
+            os.replace(temp_path, self.file_path)
+        except Exception as e:
+            logging.error(f"Failed to save pending notifications: {e}")
+
+    def enqueue(self, title, message, critical=False):
+        item = {
+            "id": str(uuid.uuid4()),
+            "title": str(title),
+            "message": str(message),
+            "critical": bool(critical),
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        with self._lock:
+            self._queue.append(item)
+            self._save()
+            self._event.set()
+        logging.info(f"Enqueued notification (critical={critical}): {title} - {message}")
+
+    def peek(self):
+        with self._lock:
+            if self._queue:
+                return self._queue[0]
+            return None
+
+    def pop(self):
+        with self._lock:
+            if self._queue:
+                item = self._queue.pop(0)
+                self._save()
+                if not self._queue:
+                    self._event.clear()
+                return item
+            return None
+
+    def wait_for_items(self, timeout=None):
+        return self._event.wait(timeout)
+
+    def size(self):
+        with self._lock:
+            return len(self._queue)
+
+class NotificationRule:
+    def __init__(self, name, condition_fn, title, message_fn, critical=False, permissible_gap_sec=0, sustain_sec=0):
+        self.name = name
+        self.condition_fn = condition_fn       # Callable returning bool
+        self.title = title                     # str or Callable returning str
+        self.message_fn = message_fn           # Callable returning str
+        self.critical = critical               # bool
+        self.permissible_gap_sec = permissible_gap_sec  # Permissible latency metadata (sec)
+        self.sustain_sec = sustain_sec         # Seconds condition must persist before firing (sec)
+        self.is_active = False
+        self.has_fired = False
+        self.condition_start_time = None
+
+    def evaluate(self, notif_queue, now=None):
+        if now is None:
+            now = datetime.datetime.now()
+
+        try:
+            condition_met = bool(self.condition_fn())
+        except Exception as e:
+            logging.error(f"Error evaluating notification rule '{self.name}': {e}")
+            return
+
+        if condition_met:
+            if not self.is_active:
+                self.is_active = True
+                self.has_fired = False
+                self.condition_start_time = now
+
+            duration = (now - self.condition_start_time).total_seconds()
+            if duration >= self.sustain_sec and not self.has_fired:
+                title_str = self.title() if callable(self.title) else str(self.title)
+                msg_str = self.message_fn() if callable(self.message_fn) else str(self.message_fn)
+                notif_queue.enqueue(title_str, msg_str, self.critical)
+                self.has_fired = True
+        else:
+            if self.is_active:
+                self.is_active = False
+                self.has_fired = False
+                self.condition_start_time = None
+
+class NotificationManager:
+    def __init__(self, queue):
+        self.queue = queue
+        self.rules = []
+        self._lock = threading.Lock()
+
+    def add_rule(self, rule):
+        with self._lock:
+            self.rules.append(rule)
+
+    def check_rules(self):
+        with self._lock:
+            now = datetime.datetime.now()
+            for rule in self.rules:
+                rule.evaluate(self.queue, now)
+
+    def notify_event(self, title, message, critical=False):
+        self.queue.enqueue(title, message, critical)
+
+def notification_sender_loop():
+    logging.info("Notification dispatcher worker thread started.")
+    backoff = 5.0
+    while True:
+        try:
+            item = notification_queue.peek()
+            if item is None:
+                notification_queue.wait_for_items(timeout=5.0)
+                continue
+
+            clean_url = str(ha_webhook_url).strip().strip('"').strip("'")
+            if not clean_url or "YOUR_WEBHOOK_ID" in clean_url or "REPLACE_ME" in clean_url:
+                logging.warning(f"ha_webhook_url not configured; discarding notification: {item['title']}")
+                notification_queue.pop()
+                continue
+
+            payload = {
+                "message": item["message"],
+                "title": item["title"],
+                "critical": item["critical"]
+            }
+
+            try:
+                response = requests.post(clean_url, json=payload, timeout=10)
+                if response.status_code in [200, 201, 204]:
+                    logging.info(f"Notification sent successfully ({response.status_code}): {item['title']}")
+                    notification_queue.pop()
+                    backoff = 5.0
+                    time.sleep(0.2)
+                else:
+                    logging.warning(f"Notification HTTP failure {response.status_code} ({response.text}); retrying in {backoff}s")
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 60.0)
+            except (requests.RequestException, socket.error, OSError) as req_err:
+                logging.warning(f"Notification transmission failed (offline/cell range: {req_err}); retrying in {backoff}s")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 60.0)
+
+        except Exception as loop_err:
+            logging.error(f"Unexpected error in notification dispatcher loop: {loop_err}")
+            time.sleep(5.0)
+
+
 # Auxiliary functions to get and set all measurement values
 
 def getBilgeTime():
@@ -342,6 +569,7 @@ def setBattHouse(volts):
         battHouse[1] = volts * factorBattHouse
         getMinMax(battHouse)
     send_delta("electrical.batteries.House.voltage", volts)
+    notification_manager.check_rules()
 
 def getBattHouse():
     with measurement_lock:
@@ -362,6 +590,7 @@ def setBattEngine(volts):
         battEngine[1] = volts * factorBattEngine
         getMinMax(battEngine)
     send_delta("electrical.batteries.Engine.voltage", battEngine[1])
+    notification_manager.check_rules()
 
 def getBattEngine():
     with measurement_lock:
@@ -372,6 +601,7 @@ def setBattAux(volts):
         battAux[1] = volts * factorBattAux
         getMinMax(battAux)
     send_delta("electrical.batteries.Thruster.voltage", battAux[1])
+    notification_manager.check_rules()
 
 def getBattAux():
     with measurement_lock:
@@ -442,6 +672,7 @@ def setTempEngine(temp):
         tempEngine[1] = temp
         getMinMax(tempEngine)
     send_delta("propulsion.main.coolantTemperature", (5/9) * (tempEngine[1] + 459.67))
+    notification_manager.check_rules()
 
 def getTempEngine():
     with measurement_lock:
@@ -452,6 +683,7 @@ def setTempExhaust(temp):
         tempExhaust[1] = temp
         getMinMax(tempExhaust)
     send_delta("propulsion.main.exhaustTemperature", (5/9) * (tempExhaust[1] + 459.67))
+    notification_manager.check_rules()
 
 def getTempExhaust():
     with measurement_lock:
@@ -462,6 +694,7 @@ def setRevs(rpms):
         revs[1] = rpms * factorRPMs
         getMinMax(revs)
     send_delta("propulsion.main.revolutions", revs[1] / 60)
+    notification_manager.check_rules()
 
 def getRevs():
     with measurement_lock:
@@ -489,7 +722,8 @@ def setFuel(level):
     global fuel
     with measurement_lock:
         fuel = max(0, min(100, (level*factorFuel)))
-    send_delta("tanks.fuel.main.currentLevel", (fuel / 100))
+    # Don't step on signalk calculated value
+    #send_delta("tanks.fuel.main.currentLevel", (fuel / 100))
 
 def getFuel():
     return fuel
@@ -603,6 +837,65 @@ def resetMinMax():
         battHouseTemp[2] = -300.0
         tempFridge[0] = 200
         tempFridge[2] = -200
+
+# Instantiate Notification Queue and Manager
+notification_queue = NotificationQueue(PATH)
+notification_manager = NotificationManager(notification_queue)
+
+# Register default notification criteria
+notification_manager.add_rule(NotificationRule(
+    name="engine_exhaust_temp_high",
+    condition_fn=lambda: getTempExhaust()[1] > 110.0 and getRevs()[1] > 0,
+    title="High Engine Exhaust Temperature",
+    message_fn=lambda: f"Engine exhaust temperature is {getTempExhaust()[1]:.1f}°F (threshold: 110°F) with RPMs at {getRevs()[1]:.0f}.",
+    critical=True,
+    permissible_gap_sec=30
+))
+
+notification_manager.add_rule(NotificationRule(
+    name="engine_coolant_temp_high",
+    condition_fn=lambda: getTempEngine()[1] > 165.0 and getRevs()[1] > 0,
+    title="High Engine Coolant Temperature",
+    message_fn=lambda: f"Engine coolant temperature is {getTempEngine()[1]:.1f}°F (threshold: 165°F) with RPMs at {getRevs()[1]:.0f}.",
+    critical=True,
+    permissible_gap_sec=30
+))
+
+notification_manager.add_rule(NotificationRule(
+    name="battery_voltage_high",
+    condition_fn=lambda: getBattHouse()[1] > 14.5 or getBattEngine()[1] > 14.5 or getBattAux()[1] > 14.5,
+    title="High Battery Voltage Alert",
+    message_fn=lambda: f"High battery voltage detected - House: {getBattHouse()[1]:.2f}V, Engine: {getBattEngine()[1]:.2f}V, Aux: {getBattAux()[1]:.2f}V (threshold: 14.50V).",
+    critical=True,
+    permissible_gap_sec=30
+))
+
+notification_manager.add_rule(NotificationRule(
+    name="house_battery_voltage_low_critical",
+    condition_fn=lambda: 0 < getBattHouse()[1] < 10.5,
+    title="Critical Low House Battery Voltage",
+    message_fn=lambda: f"House battery voltage is critically low: {getBattHouse()[1]:.2f}V (critical threshold: 10.50V).",
+    critical=True,
+    permissible_gap_sec=30
+))
+
+notification_manager.add_rule(NotificationRule(
+    name="house_battery_voltage_low_warning",
+    condition_fn=lambda: 10.5 <= getBattHouse()[1] < 11.5,
+    title="House Battery Voltage Low",
+    message_fn=lambda: f"House battery voltage is low: {getBattHouse()[1]:.2f}V (warning threshold: 11.50V).",
+    critical=False,
+    permissible_gap_sec=300
+))
+
+notification_manager.add_rule(NotificationRule(
+    name="boat_stopped_charging",
+    condition_fn=lambda: 0 < getBattHouse()[1] < 12.9,
+    title="Boat stopped charging",
+    message_fn=lambda: f"House battery voltage dropped below 13.0V to {getBattHouse()[1]:.2f}V (charging stopped).",
+    critical=False,
+    permissible_gap_sec=30
+))
 
 # Build list of SQL values to insert in to database
 def getVals():
@@ -927,6 +1220,7 @@ def phone_home():
         try:
             sql_home(getVals())
             resetMinMax()
+            notification_manager.check_rules()
         except mariadb.Error as err:
             logging.warning("Failed to send data to SQL: " + str(err))
             time.sleep(30)
@@ -1067,6 +1361,10 @@ def PiForBoatPy():
         threadAccel.start()
     if(BME_EQUIPPED):
         thread_bme.start()
+
+    # Notification sender thread
+    threadNotification = threading.Thread(target=notification_sender_loop, daemon=True)
+    threadNotification.start()
 
     threadSSID.start()
     threadNmeaIn.start()
